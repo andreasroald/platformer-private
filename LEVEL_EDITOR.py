@@ -96,6 +96,7 @@ class Editor:
             for y in range(int(self.display_width / 32)):
                 self.output_level[x].append(0)
 
+        self.background_details = pygame.sprite.Group()
         self.walls = pygame.sprite.Group()
         self.details = pygame.sprite.Group()
         self.current_layer = "walls"
@@ -139,6 +140,8 @@ class Editor:
                     self.current_layer = "walls"
                 if event.key == pygame.K_2:
                     self.current_layer = "details"
+                if event.key == pygame.K_3:
+                    self.current_layer = "background_details"
 
                 # Tileset switching
                 if event.key == pygame.K_F1:
@@ -147,6 +150,9 @@ class Editor:
                 if event.key == pygame.K_F2:
                     self.current_tileset = tileset_details
                     self.tileset_name = "tileset_details"
+                if event.key == pygame.K_F3:
+                    self.current_tileset = tileset_oak_trees
+                    self.tileset_name = "tileset_oak_trees"
 
                 # Printing the level
                 if event.key == pygame.K_RETURN:
@@ -180,6 +186,27 @@ class Editor:
                     for level in self.output_level:
                         print("{},".format(level))
 
+                    # Resetting output_level
+                    self.output_level = []
+
+                    # Appending the amount of rows to output_level
+                    for x in range(int(self.display_height / 32)):
+                        self.output_level.append([])
+
+                        for y in range(int(self.display_width / 32)):
+                            self.output_level[x].append(0)
+
+                    # Layer 3 Printing
+                    for coords in self.coordinates:
+                        for w in self.background_details:
+                            if w.rect.x == coords[0] and w.rect.y == coords[1]:
+                                self.output_level[int(coords[1]/32)][int(coords[0]/32)] = w.id
+
+                    print("BG-DETAILS:")
+                    for level in self.output_level:
+                        print("{},".format(level))
+
+
 
         # --- MOUSE EVENTS ---
         # Tile placement
@@ -199,6 +226,11 @@ class Editor:
                                 if w.rect.x == x[0] and w.rect.y == x[1]:
                                     self.details.remove(w)
                                     break
+                        elif self.current_layer == "background_details":
+                            for w in self.background_details:
+                                if w.rect.x == x[0] and w.rect.y == x[1]:
+                                    self.background_details.remove(w)
+                                    break
 
                         w = Wall(x[0], x[1], image=self.current_tileset.all_tiles[self.current_tile]["image"], id=self.current_tileset.all_tiles[self.current_tile]["id"])
 
@@ -206,6 +238,8 @@ class Editor:
                             self.walls.add(w)
                         elif self.current_layer == "details":
                             self.details.add(w)
+                        elif self.current_layer == "background_details":
+                            self.background_details.add(w)
 
                         break
 
@@ -224,6 +258,11 @@ class Editor:
                                 if w.rect.x == x[0] and w.rect.y == x[1]:
                                     self.details.remove(w)
                                     break
+                        elif self.current_layer == "background_details":
+                            for w in self.background_details:
+                                if w.rect.x == x[0] and w.rect.y == x[1]:
+                                    self.background_details.remove(w)
+                                    break
 
     # Game loop - Update
     def update(self):
@@ -235,6 +274,7 @@ class Editor:
         self.game_display.fill(black)
         self.level_surface.fill(white)
 
+        self.background_details.draw(self.level_surface)
         self.walls.draw(self.level_surface)
         self.details.draw(self.level_surface)
 

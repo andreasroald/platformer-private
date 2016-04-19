@@ -18,8 +18,13 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True # To exit the game completely, make running False
 
+        # Convert all sprites' pixel format
+        for convert in all_sprites:
+            for sprite_list in convert:
+                sprite_list.convert_alpha()
+
     # Function that creates a level from a list and returns the level list
-    def create_level(self, level, solid=True):
+    def create_level(self, level, solid=True, bg=False):
         level_x = 0
 
         # Make the bottom-left tile aligned with the bottom-left of the screen
@@ -37,6 +42,8 @@ class Game:
                                 w = Wall(level_x, level_y, 32, 32, image=tiles["image"])
                                 if solid:
                                     self.walls.add(w)
+                                elif bg:
+                                    self.background_details.add(w)
                                 else:
                                     self.details.add(w)
 
@@ -49,12 +56,26 @@ class Game:
     # Starting a new game
     def new(self):
         # Sprite groups
+        self.background_details = pygame.sprite.Group()
         self.walls = pygame.sprite.Group()
+        self.animals = pygame.sprite.Group()
         self.details = pygame.sprite.Group()
         self.clouds = pygame.sprite.Group()
 
         # Creating an instance of the player
         self.player = Player(self.walls)
+
+        # Creating Animals
+        self.bird_1 = Bird(120, 400, self.walls)
+        self.bird_2 = Bird(550, 200, self.walls)
+        self.bird_3 = Bird(900, 200, self.walls)
+
+        self.animals.add(self.bird_1)
+        self.animals.add(self.bird_2)
+        self.animals.add(self.bird_3)
+
+        # Create the background details layer
+        self.create_level(level_background_details, solid = False, bg = True)
 
         # Create the level and set current_level to its level list (used for camera movement)
         self.current_level = self.create_level(level)
@@ -102,6 +123,7 @@ class Game:
     # Game loop - Updates
     def update(self):
         self.player.update()
+        self.animals.update()
         self.clouds.update()
 
         # Horizontal Camera scrolling
@@ -128,9 +150,13 @@ class Game:
 
         # Move clouds, and delete off screen clouds
         for clouds in self.clouds:
-
             if clouds.rect.x == 0 - clouds.rect.width:
                 clouds.kill()
+
+        # Kill of screen animals
+        for animals in self.animals:
+            if animals.rect.y > display_height:
+                animals.kill()
 
         # Slowly stop screen shake
         if self.shake_amount > 0:
@@ -143,7 +169,9 @@ class Game:
         self.clouds.draw(self.background)
         self.world_surface.blit(self.background, (0+self.cam_x_offset, 0))
 
+        self.background_details.draw(self.world_surface)
         self.player.draw(self.world_surface)
+        self.animals.draw(self.world_surface)
         self.walls.draw(self.world_surface)
         self.details.draw(self.world_surface)
 

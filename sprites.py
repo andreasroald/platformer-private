@@ -13,7 +13,7 @@ class Player(pygame.sprite.Sprite):
         self.image = player_walk_1_right
         #self.image.fill(red)
         self.rect = self.image.get_rect()
-        self.rect.center = (64, 128)
+        self.rect.center = (64, 300)
 
         self.moving = False
         self.left_lock = False
@@ -242,6 +242,84 @@ class Player(pygame.sprite.Sprite):
     # Player drawing function
     def draw(self, display):
         display.blit(self.image, self.rect)
+
+# Bird class
+class Bird(pygame.sprite.Sprite):
+    # Initialize the bird class
+    def __init__(self, x, y, solid_list):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.color = random.randint(1, 3)
+
+        if self.color == 1:
+            self.image = bird_right_blue
+        elif self.color == 2:
+            self.image = bird_right_red
+        elif self.color == 3:
+            self.image = bird_right_yellow
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+        self.solid_list = solid_list
+
+        self.y_top_speed = 30
+
+        self.x_velocity = 0
+        self.y_velocity = 0
+
+    def update(self):
+
+        if self.color == 1:
+            if self.x_velocity > 0:
+                self.image = bird_right_blue
+            elif self.x_velocity < 0:
+                self.image = bird_left_blue
+
+        if self.color == 2:
+            if self.x_velocity > 0:
+                self.image = bird_right_red
+            elif self.x_velocity < 0:
+                self.image = bird_left_red
+
+        if self.color == 3:
+            if self.x_velocity > 0:
+                self.image = bird_right_yellow
+            elif self.x_velocity < 0:
+                self.image = bird_left_yellow
+
+        # X-Axis movement
+        self.rect.x += self.x_velocity
+
+        hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
+        for hits in hit_list:
+            if self.x_velocity > 0:
+                self.rect.right = hits.rect.left
+                self.x_velocity = 0
+            else:
+                self.rect.left = hits.rect.right
+                self.x_velocity = 0
+
+        # Y-Axis Movement
+        if self.y_velocity < self.y_top_speed:
+            self.y_velocity += player_grav
+        self.rect.y += self.y_velocity
+
+        hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
+        for hits in hit_list:
+            if self.y_velocity > 0:
+                self.rect.bottom = hits.rect.top
+                self.y_velocity = player_grav # Set y_velocity to player_grav so that y_velocity doesnt build up
+
+        # Move randomly
+        if random.randint(0, 60) == 30:
+            if random.randint(0, 1) == 1:
+                self.x_velocity = 10
+            else:
+                self.x_velocity = -10
+        else:
+            self.x_velocity = 0
 
 # Wall class
 class Wall(pygame.sprite.Sprite):
