@@ -40,6 +40,8 @@ class Player(pygame.sprite.Sprite):
         self.direction = "right"
         self.footstep_counter = 0
 
+        self.knockback = False
+
         self.space = False
 
         # Solid list is the sprite group that contains the walls
@@ -54,7 +56,7 @@ class Player(pygame.sprite.Sprite):
         # Movement keys handling
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_a] and not self.left_lock:
+        if keys[pygame.K_LEFT] and not self.left_lock:
             self.direction = "left"
             self.right_lock = True
             self.moving = True
@@ -63,7 +65,7 @@ class Player(pygame.sprite.Sprite):
         else:
             self.right_lock = False
 
-        if keys[pygame.K_d] and not self.right_lock:
+        if keys[pygame.K_RIGHT] and not self.right_lock:
             self.direction = "right"
             self.left_lock = True
             self.moving = True
@@ -72,13 +74,13 @@ class Player(pygame.sprite.Sprite):
         else:
             self.left_lock = False
 
-        if not keys[pygame.K_d] and not keys[pygame.K_a]:
+        if not keys[pygame.K_RIGHT] and not keys[pygame.K_LEFT]:
             if self.x_velocity != 0:
                 self.moving = True
             self.accelerate(self.acceleration)
 
         # Check if space is still held
-        if keys[pygame.K_SPACE] or keys[pygame.K_w]:
+        if keys[pygame.K_z] or keys[pygame.K_UP]:
             self.space = True
         elif self.space:
             self.space = False
@@ -136,15 +138,33 @@ class Player(pygame.sprite.Sprite):
         if self.moving:
             self.rect.x += self.x_velocity
 
+        # Do knockback, and temporarily change the direction to make collision detection work
+        if self.knockback:
+            if self.direction == "left":
+                self.rect.x += 5
+                self.direction = "right"
+            elif self.direction == "right":
+                self.rect.x -= 5
+                self.direction = "left"
+
         # Check if the player hit any walls during X-movement
         hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
         for hits in hit_list:
-            if self.x_velocity > 0:
-                self.rect.right = hits.rect.left
-                self.x_velocity = player_acc # Set x_velocity to player_acc/-player_acc so that x_velocity doesnt build up
-            else:
-                self.rect.left = hits.rect.right
-                self.x_velocity = -player_acc
+            # If top solid is true, the tile can be moved through on the X-Axis
+            if not hits.top_solid:
+                if self.direction == "right":
+                    self.rect.right = hits.rect.left
+                    self.x_velocity = player_acc # Set x_velocity to player_acc/-player_acc so that x_velocity doesnt build up
+                elif self.direction == "left":
+                    self.rect.left = hits.rect.right
+                    self.x_velocity = -player_acc
+
+        # Go back to the true direction
+        if self.knockback:
+            if self.direction == "left":
+                self.direction = "right"
+            elif self.direction == "right":
+                self.direction = "left"
 
         # Y-Axis Movement
         if self.y_velocity < self.y_top_speed:
@@ -161,22 +181,24 @@ class Player(pygame.sprite.Sprite):
         for hits in hit_list:
             if self.y_velocity > 0:
 
-                # Roll if player has enough momentum
-                if self.should_roll == False and self.y_velocity > 18:
-                    if self.x_velocity == self.x_top_speed or self.x_velocity == -self.x_top_speed:
-                        self.should_roll = True
-                        pygame.mixer.Sound.play(roll)
+                if hits.top_solid and abs(self.rect.bottom - hits.rect.top) < 5 or not hits.top_solid:
+                    # Roll if player has enough momentum
+                    if self.should_roll == False and self.y_velocity > 18:
+                        if self.x_velocity == self.x_top_speed or self.x_velocity == -self.x_top_speed:
+                            self.should_roll = True
+                            pygame.mixer.Sound.play(roll)
 
-                self.rect.bottom = hits.rect.top
-                self.y_velocity = player_grav # Set y_velocity to player_grav so that y_velocity doesnt build up
-                self.jumping = False
+                    self.rect.bottom = hits.rect.top
+                    self.y_velocity = player_grav # Set y_velocity to player_grav so that y_velocity doesnt build up
+                    self.jumping = False
 
-                if self.should_jump:
-                    self.jump()
-                    self.should_jump = False
+                    if self.should_jump:
+                        self.jump()
+                        self.should_jump = False
 
-                break
-            else:
+                    break
+            # If top_solid is true, the player can jump through the block
+            elif not hits.top_solid and self.y_velocity < 0:
                 self.rect.top = hits.rect.bottom
                 self.y_velocity = 0
                 self.jumping = True
@@ -239,9 +261,47 @@ class Player(pygame.sprite.Sprite):
         self.jump_rect.top = self.rect.bottom
         self.jump_rect.x = self.rect.x
 
+        # Make knockback false each update
+        self.knockback = False
+
     # Player drawing function
     def draw(self, display):
         display.blit(self.image, self.rect)
+
+# Fireball class
+class Fireball(pygame.sprite.Sprite):
+    # Initialize the fireball class
+    def __init__(self, x, y, direction, solid_list, plant_list):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.direction = direction
+        self.solid_list = solid_list
+        self.plant_list = plant_list
+
+        if self.direction == "right":
+            self.image = fireball_right
+        elif self.direction == "left":
+            self.image = fireball_left
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+
+        self.dead = False
+
+    # Update the fireball class
+    def update(self):
+        # X-Axis movement
+        if self.direction == "right":
+            self.rect.x += 15
+        elif self.direction == "left":
+            self.rect.x -= 15
+
+        # Check if the fireball hit any walls during X-movement
+        hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
+        for hits in hit_list:
+            if abs(self.rect.bottom - hits.rect.top) > 10:
+                self.dead = True
+
 
 # Bird class
 class Bird(pygame.sprite.Sprite):
@@ -324,13 +384,16 @@ class Bird(pygame.sprite.Sprite):
 # Wall class
 class Wall(pygame.sprite.Sprite):
     # Initialize the wall class
-    def __init__(self, x, y, w, h, color=black, image=None):
+    def __init__(self, x, y, w, h, color=black, image=None, top_solid = False):
         pygame.sprite.Sprite.__init__(self)
         if image is None:
             self.image = pygame.Surface((w, h))
             self.image.fill(color)
         else:
             self.image = image
+
+        # If top_solid is True, the tile is only solid on the top (used for platforms)
+        self.top_solid = top_solid
 
         self.rect = self.image.get_rect()
         self.rect.x = x

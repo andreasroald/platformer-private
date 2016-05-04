@@ -7,6 +7,8 @@ from sprites import *
 from tiles import *
 from levels import *
 
+import text_my_self
+
 # Create the game class
 class Game:
     # Initialize the game class
@@ -39,7 +41,11 @@ class Game:
                     if int(cols) == tilesets.id:
                         for tiles in tilesets.all_tiles:
                             if cols == tiles["id"]:
-                                w = Wall(level_x, level_y, 32, 32, image=tiles["image"])
+                                # If the tile ID is divisible by 5, top solid is true
+                                if int(cols) % 5 == 0:
+                                    w = Wall(level_x, level_y, 32, 32, image=tiles["image"], top_solid = True)
+                                else:
+                                    w = Wall(level_x, level_y, 32, 32, image=tiles["image"])
                                 if solid:
                                     self.walls.add(w)
                                 elif bg:
@@ -58,6 +64,7 @@ class Game:
         # Sprite groups
         self.background_details = pygame.sprite.Group()
         self.walls = pygame.sprite.Group()
+        self.projectiles = pygame.sprite.Group()
         self.animals = pygame.sprite.Group()
         self.details = pygame.sprite.Group()
         self.clouds = pygame.sprite.Group()
@@ -83,6 +90,14 @@ class Game:
         # Create the details Layer
         self.create_level(level_details, solid=False)
 
+        # Level borders
+        self.left_border = Wall(-1, 0, 1, display_height)
+        self.walls.add(self.left_border)
+
+        self.right_border = Wall(len(self.current_level[0]) * 32, 0, 1, display_height)
+        self.walls.add(self.right_border)
+
+
         # We blit surfaces to the world surface, then blit the world surface to the game display
         self.world_surface = pygame.Surface((len(self.current_level[0]) * 32, display_height))
         self.background = pygame.Surface((display_width, display_height))
@@ -90,6 +105,9 @@ class Game:
 
         # Camera variables
         self.cam_x_offset = 0
+
+        # fireball variables
+        self.previous_fireball = 0
 
         # Screen shake variables
         self.shake_amount = 10
@@ -114,19 +132,50 @@ class Game:
                     self.playing = False
                 self.running = False
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE or event.key == pygame.K_w:
+                if event.key == pygame.K_z or event.key == pygame.K_UP:
                     if self.player.jumping:
                         self.player.test_for_jump()
                     else:
                         self.player.jump()
 
+                if event.key == pygame.K_x:
+                    # Only allow fireballs to be shot every 250 milliseconds
+                    if pygame.time.get_ticks() - self.previous_fireball > 250:
+                        # Creating the fireball object based on player direction
+                        if self.player.direction == "left":
+                            fb = Fireball(self.player.rect.center[0], self.player.rect.center[1] + random.randint(-10, 10), "left", self.walls, self.details)
+                        elif self.player.direction == "right":
+                            fb = Fireball(self.player.rect.center[0], self.player.rect.center[1] + random.randint(-10, 10), "right", self.walls, self.details)
+
+                        self.projectiles.add(fb)
+
+                        # knockback and recoil
+                        if self.player.direction == "left":
+                            self.player.knockback = True
+                            self.cam_x_offset += 5
+                        elif self.player.direction == "right":
+                            self.player.knockback = True
+                            self.cam_x_offset -= 5
+
+                        # Screen shake
+                        self.shake_amount = 4
+
+                        # Play the fireball sound
+                        pygame.mixer.Sound.play(fireball_sound)
+
+                        # Set previous_fireball to current time
+                        self.previous_fireball = pygame.time.get_ticks()
+
+
     # Game loop - Updates
     def update(self):
         self.player.update()
+        self.projectiles.update()
         self.animals.update()
         self.clouds.update()
 
         # Horizontal Camera scrolling
+        """
         if self.player.rect.center[0] > self.cam_x_offset + 800 / 2:
             if self.player.x_velocity > 0 and self.cam_x_offset < (len(self.current_level[0]) - 25) * 32:
                 self.cam_x_offset += abs(self.player.x_velocity)
@@ -134,10 +183,15 @@ class Game:
         if self.player.rect.center[0] < self.cam_x_offset + 800 / 2:
             if self.player.x_velocity < 0 and self.cam_x_offset > 0:
                 self.cam_x_offset -= abs(self.player.x_velocity)
+        """
+
+        self.cam_x_offset = self.player.rect.x - display_width / 2
 
         if self.cam_x_offset < 0:
             self.cam_x_offset = 0
 
+        if self.cam_x_offset > (len(self.current_level[0]) - 25) * 32:
+            self.cam_x_offset = (len(self.current_level[0]) - 25) * 32
 
         # Reset game if player is out of the screen
         if self.player.rect.y > display_height+64:
@@ -148,7 +202,7 @@ class Game:
             c = Cloud(display_width, random.randint(0, 300))
             self.clouds.add(c)
 
-        # Move clouds, and delete off screen clouds
+        # Delete off screen clouds
         for clouds in self.clouds:
             if clouds.rect.x == 0 - clouds.rect.width:
                 clouds.kill()
@@ -158,9 +212,15 @@ class Game:
             if animals.rect.y > display_height:
                 animals.kill()
 
+        # Remove dead fireballs
+        for fireballs in self.projectiles:
+            if fireballs.dead:
+                fireballs.kill()
+
         # Slowly stop screen shake
         if self.shake_amount > 0:
             self.shake_amount -= 0.5
+
 
     # Game loop - Draw
     def draw(self):
@@ -170,9 +230,10 @@ class Game:
         self.world_surface.blit(self.background, (0+self.cam_x_offset, 0))
 
         self.background_details.draw(self.world_surface)
+        self.projectiles.draw(self.world_surface)
+        self.walls.draw(self.world_surface)
         self.player.draw(self.world_surface)
         self.animals.draw(self.world_surface)
-        self.walls.draw(self.world_surface)
         self.details.draw(self.world_surface)
 
         # If shake amount is more than 0, blit the world at a random location between

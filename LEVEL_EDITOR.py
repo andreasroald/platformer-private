@@ -153,6 +153,12 @@ class Editor:
                 if event.key == pygame.K_F3:
                     self.current_tileset = tileset_oak_trees
                     self.tileset_name = "tileset_oak_trees"
+                if event.key == pygame.K_F4:
+                    self.current_tileset = tileset_house_1
+                    self.tileset_name = "tileset_house_1"
+                if event.key == pygame.K_F5:
+                    self.current_tileset = tileset_platforms
+                    self.tileset_name = "tileset_platforms"
 
                 # Printing the level
                 if event.key == pygame.K_RETURN:

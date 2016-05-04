@@ -83,5 +83,7 @@ class Tileset:
 tileset_grass = Tileset(tileset_grass, 1)
 tileset_details = Tileset(tileset_details, 2)
 tileset_oak_trees = Tileset(tileset_oak_trees, 3)
+tileset_house_1 = Tileset(tileset_house_1, 4)
+tileset_platforms = Tileset(tileset_platforms, 5)
 
-tileset_list = [tileset_grass, tileset_details, tileset_oak_trees]
+tileset_list = [tileset_grass, tileset_details, tileset_oak_trees, tileset_house_1, tileset_platforms]
